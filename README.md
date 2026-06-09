@@ -21,7 +21,7 @@ The system is designed as a cascaded recognition pipeline:
 
 The final output is a structured Iranian plate string, for example:
 
-`20 879 B 90`
+`۲۲ ۹۷۹ د ۸۶`
 
 ## Pipeline Architecture
 
@@ -170,7 +170,7 @@ For videos, detected plates can be tracked over time and assigned a stable ident
 
 A typical recognition result is formatted like:
 
-`20 879 B 90`
+`۲۲ ۹۷۹ د ۸۶`
 
 If multiple plates are present, the system can detect and process all of them independently.
 
