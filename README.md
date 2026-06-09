@@ -80,7 +80,7 @@ For videos, the system also supports **tracking**, allowing each detected plate 
 
 A typical project layout looks like this:
 
-```txt
+```text
 .
 ├── inference.ipynb
 ├── model_1.ipynb
