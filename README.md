@@ -376,8 +376,8 @@ But honestly, `PlateHunter` is the cleanest choice here.
 
 ## License / Usage Note
 
-Add your preferred license and dataset usage terms here if the repository is going public.
+The datasets used for training are not included in this repository because they are part of a private fine-tuned dataset.
 
-If the trained weights or data are restricted, mention that clearly in this section.
-  - `Requirements`
-  - `How to Run`
+The source code in this repository may be used, modified, and adapted freely, including for training and evaluation on your own datasets.
+
+Trained model weights are not included in this repository.
