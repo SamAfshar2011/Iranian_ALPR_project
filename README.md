@@ -381,6 +381,3 @@ Add your preferred license and dataset usage terms here if the repository is goi
 If the trained weights or data are restricted, mention that clearly in this section.
   - `Requirements`
   - `How to Run`
-- یا حتی بهتر: مستقیم به فرم **فایل نهایی `README.md` با لحن تمیزتر و حرفه‌ای‌تر** بازنویسی‌اش کنم که کمتر شبیه draft و بیشتر شبیه repo آماده انتشار باشد.
-
-اگر خواستی، در پیام بعدی من **نسخه نهایی production-ready README** را می‌دهم؛ یعنی همان چیزی که تقریباً مستقیم می‌گذاری داخل ریپو و تمام.
