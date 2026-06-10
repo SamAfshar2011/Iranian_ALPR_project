@@ -77,7 +77,7 @@ Accepted Iranian plate outputs must match this pattern:
 
 Where:
 - positions `0, 1, 3, 4, 5, 6, 7` must be numeric
-- position `2` must be a valid letter/symbol class
+- position `3` must be a valid letter/symbol class
 
 Persian and Arabic numerals are normalized before validation.
 
