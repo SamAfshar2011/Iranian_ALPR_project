@@ -1,258 +1,524 @@
-```markdown
-# Iranian License Plate Recognition (ALPR)
+# Iranian License Plate Detection and Recognition
 
-A full multi-stage Iranian Automatic License Plate Recognition (ALPR) pipeline for detecting license plates, segmenting plate characters, and recognizing the final plate text from images or video streams.
+A complete end-to-end Automatic License Plate Recognition (ALPR) pipeline for Iranian license plates.
 
-This project is built as a three-model pipeline and an inference workflow that connects all stages into a single end-to-end system. It supports multiple plates per frame, works on both images and videos, and can track detected plates over time to assign a persistent ID in video mode.
+This project detects one or multiple license plates in an image or video frame, crops each plate, detects all eight plate characters, sorts them in the correct reading order, and finally recognizes each character to produce the full Persian plate number.
 
-## Overview
+The final output looks like this:
+```text
+۲۰ ۸۷۹ ب ۹۰
 
-The system is designed as a cascaded recognition pipeline:
+The system is built as a three-stage deep learning pipeline:
 
-1. **Model 1 — Whole Plate Detection**  
-   Detects every license plate in the input image/frame and crops each detected plate region.
+1. **Plate Detection**
+2. **Character Detection**
+3. **Character Recognition**
 
-2. **Model 2 — Character Region Extraction**  
-   Receives each cropped plate image and extracts the eight character regions of an Iranian plate.  
-   This model does **not** classify the characters. Its role is only to localize and crop them in order.
+The models are connected together in `inference.ipynb`, which supports both image and video inference. For video input, the system can also track detected plates across frames and assign a unique ID to each plate.
 
-3. **Model 3 — Character Recognition**  
-   Receives the eight cropped character images and predicts the identity of each character.
+---
 
-The final output is a structured Iranian plate string, for example:
+## Demo
 
-`۲۲ ۹۷۹ د ۸۶`
+### Plate Detection Output
+
+![Plate Detection Output](assets/model_1_output.png)
+
+### Character Detection Output
+
+![Character Detection Output](assets/model_2_output.png)
+
+### Full Pipeline Output - Image Example
+
+![Full ALPR Output 1](assets/full_pipeline_output_1.png)
+
+### Full Pipeline Output - Another Example
+
+![Full ALPR Output 2](assets/full_pipeline_output_2.png)
+
+---
+
+## Project Overview
+
+Iranian license plate recognition is more challenging than simple object detection because a complete solution needs to handle several steps reliably:
+
+- Detecting plates in different image conditions
+- Supporting multiple plates in the same frame
+- Cropping each plate accurately
+- Finding all eight characters inside the plate
+- Sorting characters in the correct logical order
+- Recognizing Persian digits and letters
+- Reconstructing the final readable plate text
+- Tracking plates across video frames
+
+This project solves the problem using a modular three-model architecture. Each model focuses on one specific task, which makes the pipeline easier to train, debug, improve, and replace.
+
+---
 
 ## Pipeline Architecture
 
-### Stage 1 — Plate Detection
-The first model is responsible for detecting all plate instances in a full image or video frame.  
-Its output is one or more bounding boxes corresponding to full plates.
+text
+Input Image / Video Frame
+|
+v
++-----------------------+
+| Model 1               |
+| Plate Detector        |
+| YOLO 26s              |
++-----------------------+
+|
+| Cropped plate images
+v
++-----------------------+
+| Model 2               |
+| Character Detector    |
+| YOLO 26l              |
++-----------------------+
+|
+| 8 sorted character crops
+v
++-----------------------+
+| Model 3               |
+| Character Classifier  |
+| ConvNeXt Small        |
++-----------------------+
+|
+v
+Final Plate Text
 
-- **Model type:** YOLO
-- **Backbone / checkpoint:** `yolo26s`
-- **Primary responsibility:** find every plate in the scene
-- **Output:** cropped plate images, one crop per detected plate
+---
 
-This stage is designed for multi-plate scenarios, meaning it preserves all valid plate detections instead of assuming only a single target vehicle or plate per image.
+## Model 1: License Plate Detection
 
-### Stage 2 — Character Localization and Ordering
-The second model takes a cropped plate image and extracts all eight character regions.
+The first model is responsible for locating every license plate in the input image or video frame.
 
-Important detail: this model does **not** decide what the characters are.  
-It only identifies where the characters are and returns the eight crops in reading order:
+It receives the original image/frame and returns bounding boxes around all detected plates. Each detected plate is then cropped and passed to the second model.
 
-`C1 C2 C3 C4 C5 C6 C7 C8`
+### Model
 
-This explicit separation between **localization** and **classification** makes the pipeline easier to debug and more modular.
+- **Architecture:** YOLO 26s
+- **Task:** Object detection
+- **Input:** Full image or video frame
+- **Output:** Bounding boxes for all detected license plates
+- **Result:** Cropped plate images
 
-- **Model type:** YOLO
-- **Backbone / checkpoint:** `yolo26l`
-- **Input:** cropped plate image from Model 1
-- **Output:** eight ordered character crops
+### Responsibilities
 
-### Stage 3 — Character Classification
-The third model takes the eight character crops and classifies each one independently.
+- Detect one or multiple plates in a single image
+- Work on both images and video frames
+- Crop detected plates for the next stage
+- Preserve plate regions with enough visual detail for character detection
 
-- **Model type:** ConvNeXt Small
-- **Input:** ordered character crops from Model 2
-- **Output:** predicted character identity for each crop
+---
 
-The final recognized plate text is reconstructed from the ordered predictions.
+## Model 2: Character Detection
 
-## Inference Workflow
+The second model receives cropped license plate images from Model 1.
 
-The full pipeline is connected in `inference.ipynb`.
+Its job is not to recognize the characters. Instead, it detects the location of each character inside the plate and crops them individually.
 
-At inference time, the process is:
+For an Iranian plate, the model extracts all eight characters and sorts them from left to right in the following structure:
 
-1. Read an input image or video
-2. Detect all plates in the frame
-3. Crop each plate region
-4. Extract and sort the eight character crops for each plate
-5. Classify each cropped character
-6. Reconstruct the final plate string
-7. Render the result on the output frame
+text
+C1 C2 C3 C4 C5 C6 C7 C8
 
-For videos, the system also supports **tracking**, allowing each detected plate to receive a unique ID and be followed across consecutive frames.
+### Model
 
-## Project Structure
+- **Architecture:** YOLO 26l
+- **Task:** Character-level object detection
+- **Input:** Cropped license plate image
+- **Output:** Bounding boxes for plate characters
+- **Result:** Eight sorted character crops
 
-A typical project layout looks like this:
+### Responsibilities
 
-```text
+- Detect the eight visible plate characters
+- Crop each character region
+- Sort character crops from left to right
+- Prepare normalized character images for classification
+
+This separation makes the recognition process more robust. Instead of trying to read the entire plate at once, the system breaks the plate into clean character-level inputs.
+
+---
+
+## Model 3: Character Recognition
+
+The third model receives the eight cropped character images generated by Model 2.
+
+It classifies each crop and predicts the actual Persian digit or letter inside it.
+
+### Model
+
+- **Architecture:** ConvNeXt Small
+- **Task:** Image classification
+- **Input:** Individual cropped character image
+- **Output:** Character class prediction
+- **Result:** Final recognized plate text
+
+### Responsibilities
+
+- Recognize Persian digits
+- Recognize supported Iranian plate letters
+- Convert eight classified crops into a readable plate string
+- Reconstruct the final plate format
+
+Example final output:
+
+text
+۲۰ ۸۷۹ ب ۹۰
+
+---
+
+## Inference Pipeline
+
+The complete pipeline is implemented in:
+
+text
+inference.ipynb
+
+This notebook connects all three models into one inference workflow.
+
+### Image Inference
+
+For image input, the pipeline:
+
+1. Loads the input image
+2. Detects all license plates using Model 1
+3. Crops each detected plate
+4. Detects all eight characters using Model 2
+5. Sorts character crops from left to right
+6. Classifies each character using Model 3
+7. Draws the final result on the image
+8. Returns the recognized plate text
+
+### Video Inference
+
+For video input, the pipeline works frame by frame.
+
+In addition to plate detection and recognition, the video mode can track plates across frames and assign a unique ID to each detected plate.
+
+This makes the output more stable and useful for real-world scenarios where the same vehicle appears across multiple frames.
+
+### Video Mode Features
+
+- Frame-by-frame plate detection
+- Multi-plate support
+- Plate tracking
+- Unique ID assignment per tracked plate
+- Recognition result overlay
+- End-to-end video output generation
+
+---
+
+## Repository Structure
+
+A suggested structure for this repository:
+
+text
 .
-├── inference.ipynb
-├── model_1.ipynb
-├── model_2.ipynb
-├── model_3.ipynb
-├── Datasets/
-│   ├── DS_model_1/
-│   ├── DS_model_2/
-│   └── DS_model_3/
-├── Saved_models/
-│   ├── model_1/
-│   ├── model_2/
-│   └── model_3/
-└── yolo models/
-```
+├── model_1.ipynb              # Plate detection training / evaluation notebook
+├── model_2.ipynb              # Character detection training / evaluation notebook
+├── model_3.ipynb              # Character recognition training / evaluation notebook
+├── inference.ipynb            # End-to-end inference pipeline
+├── models/                    # Trained model weights
+│   ├── plate_detector.pt
+│   ├── character_detector.pt
+│   └── character_classifier.pth
+├── assets/                    # README images and demo outputs
+│   ├── model_1_output.png
+│   ├── model_2_output.png
+│   ├── full_pipeline_output_1.png
+│   └── full_pipeline_output_2.png
+├── inputs/                    # Sample input images/videos
+├── outputs/                   # Generated inference outputs
+└── README.md
 
-## Model Breakdown
+You can change the model weight names based on your actual exported files.
 
-### Model 1 — Whole Plate Detector
-`model_1.ipynb`
+---
 
-This notebook trains the first-stage detector that finds complete plate regions in full images.
+## Installation
 
-#### Key characteristics
-- Uses full scene / vehicle images as input
-- Uses XML annotations placed beside the corresponding images
-- Trains a single-class detector:
-  - `class 0 = plate`
-- Preserves multiple plate instances per image
-- Skips invalid samples instead of silently corrupting labels
-- Reads image dimensions directly from image files instead of trusting XML metadata
+Clone the repository:
 
-#### Annotation handling
-The training logic is intentionally strict.
+bash
+git clone https://github.com/your-username/iranian-license-plate-recognition.git
+cd iranian-license-plate-recognition
 
-Only objects whose label is exactly:
+Create a virtual environment:
 
-`کل ناحیه پلاک`
+bash
+python -m venv venv
 
-are used as valid whole-plate boxes for Model 1.
+Activate it:
 
-Character-level boxes are ignored for this model by default.
+bash
+# Linux / macOS
+source venv/bin/activate
 
-This is a very good design choice, by the way — because mixing full-plate detection labels with character-level annotations in the same detector is how people accidentally teach their model chaos and then act surprised when it predicts nonsense.
+# Windows
+venv\Scripts\activate
 
-#### Data safety rules
-The notebook enforces a conservative data contract:
+Install dependencies:
 
-- no train/validation mixing
-- no automatic test split creation
-- no physical deletion of invalid files
-- no blind reliance on XML image size metadata
-- no uncontrolled external augmentation
-- no silent acceptance of malformed boxes
-- out-of-bound boxes are validated and handled carefully
+bash
+pip install -r requirements.txt
 
-This makes the preprocessing pipeline reproducible and easier to audit.
+If you do not have a `requirements.txt` file yet, install the main dependencies manually:
 
-## Why the Three-Stage Design?
+bash
+pip install ultralytics opencv-python torch torchvision numpy matplotlib pillow tqdm
 
-Instead of trying to solve everything with one giant model, this project splits the task into specialized stages:
+Depending on your environment, you may also need:
 
-- **Detection** answers: *Where is the plate?*
-- **Segmentation/localization** answers: *Where are the characters?*
-- **Recognition** answers: *What is each character?*
+bash
+pip install jupyter notebook
 
-This decomposition has several practical advantages:
+---
 
-- easier training and debugging
-- cleaner failure analysis
-- more modular experimentation
-- the ability to replace one stage without retraining the entire stack
-- better control over Iranian plate formatting constraints
+## Usage
 
-In other words: less magical thinking, more engineering.
+Open the inference notebook:
 
-## Supported Inputs
+bash
+jupyter notebook inference.ipynb
 
-The inference workflow supports:
+Then configure the paths for:
 
-- **Images**
-- **Videos**
+- Plate detector weights
+- Character detector weights
+- Character classifier weights
+- Input image or video
+- Output directory
 
-For videos, detected plates can be tracked over time and assigned a stable identity.
+Run the notebook cells to perform inference.
 
-## Example Output
+---
 
-A typical recognition result is formatted like:
+## Image Inference Example
 
-`۲۲ ۹۷۹ د ۸۶`
+The image pipeline detects every visible plate and returns recognized plate text for each one.
 
-If multiple plates are present, the system can detect and process all of them independently.
+Example output:
 
-## Training Notes
+text
+Detected Plate 1: ۲۰ ۸۷۹ ب ۹۰
+Detected Plate 2: ۳۵ ۲۴۱ د ۷۷
 
-Each notebook is responsible for one stage of the pipeline:
+The final image can include:
 
-- `model_1.ipynb` — whole plate detection
-- `model_2.ipynb` — character localization / extraction
-- `model_3.ipynb` — character classification
-- `inference.ipynb` — full end-to-end inference
+- Plate bounding boxes
+- Recognized plate text
+- Confidence-based predictions
+- Multiple detected plates
 
-The training and inference logic are intentionally separated, which keeps experimentation cleaner and deployment logic easier to maintain.
+---
 
-## Requirements
+## Video Inference Example
 
-The exact environment depends on the notebook contents, but the project is built around Python and common deep learning / computer vision libraries.
+In video mode, the system can detect, recognize, and track plates over time.
 
-Typical dependencies include:
+Example output:
 
-- Python 3.x
-- PyTorch
-- Ultralytics YOLO
-- OpenCV
-- NumPy
-- Jupyter Notebook
+text
+ID 1: ۲۰ ۸۷۹ ب ۹۰
+ID 2: ۳۵ ۲۴۱ د ۷۷
 
-If you want this repository to be easy for others to run, it is strongly recommended to add a `requirements.txt` or `environment.yml`.
+Each tracked plate receives a unique ID, making it easier to follow the same vehicle across consecutive frames.
 
-## Recommended Repository Additions
+---
 
-To make the project more complete on GitHub, consider adding:
+## Why Three Separate Models?
 
-- `requirements.txt`
-- `README` sample predictions
-- model weight download instructions
-- dataset preparation notes
-- a small `configs/` directory for paths and thresholds
-- a Python inference script version in addition to the notebook
-- example input/output media
+A single end-to-end OCR model can work for some scenarios, but this project uses a staged approach for better control and reliability.
+
+### Benefits
+
+- **Better localization:** Plate detection and character detection are optimized separately.
+- **Cleaner recognition:** The classifier receives focused character crops instead of full plate images.
+- **Easier debugging:** Each stage can be tested independently.
+- **Modular improvement:** Any model can be replaced without rewriting the entire system.
+- **Multi-plate support:** The first model detects all plates before recognition starts.
+- **Video-ready design:** Detection and tracking can be combined cleanly.
+
+---
+
+## Supported Input Types
+
+The pipeline supports:
+
+- Images
+- Video files
+- Frames extracted from video streams
+
+Common image formats:
+
+text
+.png
+.jpeg
+.png
+.bmp
+
+Common video formats:
+
+text
+.mp4
+.avi
+.mov
+.mkv
+
+---
+
+## Output Format
+
+The final recognized Iranian plate is reconstructed in a readable Persian format.
+
+Example:
+
+text
+۲۰ ۸۷۹ ب ۹۰
+
+Internally, the character detector sorts crops as:
+
+text
+C1 C2 C3 C4 C5 C6 C7 C8
+
+Then the classifier predicts the value of each character and the final formatter converts them into the displayed plate structure.
+
+---
+
+## Notebooks
+
+### `model_1.ipynb`
+
+Contains the workflow for the license plate detection model.
+
+Main purpose:
+
+- Train or evaluate the plate detector
+- Detect plate bounding boxes
+- Generate cropped plate regions
+- Prepare output for the character detection stage
+
+### `model_2.ipynb`
+
+Contains the workflow for detecting individual characters inside a cropped license plate.
+
+Main purpose:
+
+- Train or evaluate the character detector
+- Detect all eight character regions
+- Crop character images
+- Sort character positions from left to right
+
+### `model_3.ipynb`
+
+Contains the workflow for recognizing cropped plate characters.
+
+Main purpose:
+
+- Train or evaluate the ConvNeXt Small classifier
+- Classify Persian digits and letters
+- Convert character crops into predicted labels
+
+### `inference.ipynb`
+
+Contains the complete end-to-end inference pipeline.
+
+Main purpose:
+
+- Load all trained models
+- Run image inference
+- Run video inference
+- Track plates in video
+- Draw results
+- Generate final recognized plate text
+
+---
+
+## Results
+
+The system can:
+
+- Detect multiple plates in a single image
+- Crop each detected plate
+- Detect eight characters per plate
+- Sort characters correctly
+- Recognize Persian plate characters
+- Return a final readable plate number
+- Track plates in video mode
+
+Example:
+
+text
+Input:  vehicle image or video frame
+Output: ۲۰ ۸۷۹ ب ۹۰
+
+---
 
 ## Limitations
 
-Like any ALPR system, performance can be affected by:
+The system may produce weaker results when:
 
-- motion blur
-- low resolution plates
-- strong perspective distortion
-- occlusion
-- poor lighting
-- rare plate styles or damaged plates
-- detection errors propagating into downstream recognition stages
+- The plate is heavily blurred
+- The plate is too small in the frame
+- Lighting conditions are poor
+- The plate is strongly rotated or occluded
+- Characters are damaged or visually distorted
+- The detector fails to crop the plate accurately
 
-Since the pipeline is sequential, an early-stage failure can affect later stages. That tradeoff is normal for cascaded systems and should be considered during evaluation.
+Performance can be improved by adding more diverse training data, especially for night scenes, motion blur, low-resolution footage, and angled plates.
+
+---
 
 ## Future Improvements
 
-Possible next steps for the project:
+Possible next steps:
 
-- export inference from notebook form into a production-ready Python package
-- add evaluation metrics for all three stages
-- benchmark runtime on image and video workloads
-- add confidence reporting for plate-level predictions
-- improve temporal fusion in video tracking mode
-- support batch inference and structured JSON outputs
-- add deployment endpoints or a lightweight demo app
+- Export the full pipeline as a Python package
+- Add a command-line interface
+- Add real-time webcam inference
+- Add REST API support with FastAPI
+- Add Docker support
+- Add benchmark metrics for each model
+- Improve tracking stability in crowded scenes
+- Add confidence filtering and result smoothing
+- Export models to ONNX for faster deployment
+- Build a small web dashboard for uploading images and videos
 
-## Summary
+---
 
-This repository implements a full Iranian ALPR pipeline with:
+## Tech Stack
 
-- multi-plate detection
-- ordered character extraction
-- character-level recognition
-- image and video inference
-- plate tracking with IDs in video mode
+- Python
+- PyTorch
+- YOLO 26s
+- YOLO 26l
+- ConvNeXt Small
+- OpenCV
+- Jupyter Notebook
 
-The project is organized around three specialized models:
+---
 
-- **YOLO26s** for whole plate detection
-- **YOLO26l** for ordered character extraction
-- **ConvNeXt Small** for character classification
+## Acknowledgements
 
-Together, they form a modular and practical end-to-end license plate recognition system.
-```
+This project was built as a complete Iranian license plate detection and recognition pipeline, combining object detection, character detection, image classification, and video tracking into a single practical ALPR system.
+
+---
+
+## License
+
+Add your preferred license here.
+
+For example:
+
+text
+MIT License
+
+---
+
+## Author
+
+Developed by **Your Name**.
+
+GitHub: [@your-username](https://github.com/your-username) 
