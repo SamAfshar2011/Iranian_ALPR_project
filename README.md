@@ -26,7 +26,7 @@ The models are connected together in `inference.ipynb`, which supports both imag
 
 ### Character Detection Output
 
-![Character Detection Output](assets/model_2_output.png)
+![Character Detection Output](assets/full_pipeline_output_1.png)
 
 ### Full Pipeline Output - Image Example
 
