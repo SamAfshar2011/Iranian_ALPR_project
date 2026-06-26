@@ -1,5 +1,5 @@
 # PlateHunter
-A three-stage Automatic License Plate Recognition (ALPR) pipeline for Iranian plates, built for both images and videos.
+A three-stage Automatic License Plate Recognition (ALPR) pipeline for Iranian plates, built for both images axnd videos.
 
 PlateHunter combines object detection, character localization, character classification, and multi-object tracking into a single practical pipeline. The system is designed to detect license plates, extract all 8 plate characters, classify each character, validate the final plate format, and maintain stable identities across video frames.
 
@@ -63,6 +63,31 @@ Each detected character crop is passed to a classifier to predict its class.
 
 ### Full Pipeline Output — Example 2
 ![Full Pipeline Output 2](assets/full_pipeline_output_2.png)
+
+### Full Pipeline Output — Example 3
+![Full Pipeline Output 2](assets/full_pipeline_output_3.png)
+
+### Full Pipeline Output — Example 4
+![Full Pipeline Output 2](assets/full_pipeline_output_4.png)
+
+### Full Pipeline Output — Example 5
+![Full Pipeline Output 2](assets/full_pipeline_output_5.png)
+
+### Full Pipeline Output — Example 6
+![Full Pipeline Output 2](assets/full_pipeline_output_6.png)
+
+### Full Pipeline Output — Example 7
+![Full Pipeline Output 2](assets/full_pipeline_output_7.png)
+
+### Full Pipeline Output — Example 8
+![Full Pipeline Output 2](assets/full_pipeline_output_8.png)
+
+### Full Pipeline Output — Example 9
+![Full Pipeline Output 2](assets/full_pipeline_output_9.png)
+
+### Full Pipeline Output — Example 10
+![Full Pipeline Output 2](assets/full_pipeline_output_10.png)
+
 
 ---
 
